@@ -61,9 +61,12 @@
 #include "lidarFactor.hpp"
 #include "aloam_velodyne/common.h"
 #include "aloam_velodyne/tic_toc.h"
-
+#include "aloam_velodyne/dwdx.h"
+#include "aloam_velodyne/xy2000_lb2000.h"
 
 int frameCount = 0;
+
+FILE *fp;
 
 double timeLaserCloudCornerLast = 0;
 double timeLaserCloudSurfLast = 0;
@@ -84,6 +87,13 @@ const int laserCloudNum = laserCloudWidth * laserCloudHeight * laserCloudDepth; 
 
 int laserCloudValidInd[125];
 int laserCloudSurroundInd[125];
+
+struct pos{
+    double x;
+    double y;
+};
+
+std::queue<pos> gtPos;
 
 // input: from odom
 pcl::PointCloud<PointType>::Ptr laserCloudCornerLast(new pcl::PointCloud<PointType>());
@@ -191,6 +201,32 @@ void laserCloudFullResHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloud
 	mBuf.lock();
 	fullResBuf.push(laserCloudFullRes2);
 	mBuf.unlock();
+}
+
+void getGPS(const aloam_velodyne::dwdx msg)
+{
+
+    double lon = msg.longitude * 0.000001;
+    double lat = msg.latitude * 0.000001;
+    int gx, gy;
+    XY2000::LB2000_XY2000(lon*M_PI/180.0, lat*M_PI/180.0, gx, gy);
+    double globalX = gy*0.1;
+    double globalY = gx*0.1;
+    static double yaw = (M_PI/2) - msg.heading * 0.01 * M_PI / 180;
+    static double initX = globalX;
+    static double initY = globalY;
+    globalX = globalX - initX;
+    globalY = globalY - initY;
+    pos curGtPos;
+    curGtPos.y = -(globalX * cos(yaw) + globalY * sin(yaw));
+    curGtPos.x = globalY * cos(yaw) - globalX * sin(yaw);
+
+    mBuf.lock();
+    gtPos.push(curGtPos);
+    if(gtPos.size()==10) gtPos.pop();
+    mBuf.unlock();
+
+	printf("hscMsg%f, %f\n", curGtPos.x, curGtPos.y);
 }
 
 //receive odomtry
@@ -864,6 +900,15 @@ void process()
 			odomAftMapped.pose.pose.position.z = t_w_curr.z();
 			pubOdomAftMapped.publish(odomAftMapped);
 
+            double gtX = gtPos.back().x;
+            double gtY = gtPos.back().y;
+            double calX = odomAftMapped.pose.pose.position.x;
+            double calY = odomAftMapped.pose.pose.position.y;
+            double errorDis = sqrt((gtX-calX)*(gtX-calX)+(gtY-calY)*(gtY-calY));
+            fprintf(fp,"%lf %lf %lf %lf %lf %lf\n", timeLaserOdometry, gtX, gtY, calX, calY, errorDis);
+            fflush(fp);
+
+
 			geometry_msgs::PoseStamped laserAfterMappedPose;
 			laserAfterMappedPose.header = odomAftMapped.header;
 			laserAfterMappedPose.pose = odomAftMapped.pose.pose;
@@ -897,6 +942,14 @@ int main(int argc, char **argv)
 	ros::init(argc, argv, "laserMapping");
 	ros::NodeHandle nh;
 
+    std::time_t timeTmp;
+    std::time(&timeTmp);
+    std::string filename = "loamError" + std::to_string(timeTmp) + ".txt";
+
+    fp = fopen(filename.c_str(), "w");
+    fprintf(fp,"timeStamp gtX gtY loamX loamY errorDis\n");
+    fflush(fp);
+
 	float lineRes = 0;
 	float planeRes = 0;
 	nh.param<float>("mapping_line_resolution", lineRes, 0.4);
@@ -905,6 +958,7 @@ int main(int argc, char **argv)
 	downSizeFilterCorner.setLeafSize(lineRes, lineRes,lineRes);
 	downSizeFilterSurf.setLeafSize(planeRes, planeRes, planeRes);
 
+
 	ros::Subscriber subLaserCloudCornerLast = nh.subscribe<sensor_msgs::PointCloud2>("/laser_cloud_corner_last", 100, laserCloudCornerLastHandler);
 
 	ros::Subscriber subLaserCloudSurfLast = nh.subscribe<sensor_msgs::PointCloud2>("/laser_cloud_surf_last", 100, laserCloudSurfLastHandler);
@@ -912,6 +966,8 @@ int main(int argc, char **argv)
 	ros::Subscriber subLaserOdometry = nh.subscribe<nav_msgs::Odometry>("/laser_odom_to_init", 100, laserOdometryHandler);
 
 	ros::Subscriber subLaserCloudFullRes = nh.subscribe<sensor_msgs::PointCloud2>("/velodyne_cloud_3", 100, laserCloudFullResHandler);
+
+	ros::Subscriber subgetGPS = nh.subscribe<aloam_velodyne::dwdx>("/ros_dwdx", 100, getGPS);
 
 	pubLaserCloudSurround = nh.advertise<sensor_msgs::PointCloud2>("/laser_cloud_surround", 100);
 
@@ -930,6 +986,8 @@ int main(int argc, char **argv)
 		laserCloudCornerArray[i].reset(new pcl::PointCloud<PointType>());
 		laserCloudSurfArray[i].reset(new pcl::PointCloud<PointType>());
 	}
+
+
 
 	std::thread mapping_process{process};
 

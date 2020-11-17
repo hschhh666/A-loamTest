@@ -1,6 +1,6 @@
 <launch>
-     <remap from="/velodyne_points" to="/velodyne"/>
-    <param name="scan_line" type="int" value="32" />
+    <remap from="/velodyne_points" to="/pandar_points"/>
+    <param name="scan_line" type="int" value="40" />
 
     <!-- if 1, do mapping 10 Hz, if 2, do mapping 5 Hz. Suggest to use 1, it will adjust frequence automaticlly -->
     <param name="mapping_skip_frame" type="int" value="1" />
@@ -18,7 +18,7 @@
 
     <node pkg="aloam_velodyne" type="alaserMapping" name="alaserMapping" output="screen" />
 
-   
+    
 
     <arg name="rviz" default="true" />
     <group if="$(arg rviz)">

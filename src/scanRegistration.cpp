@@ -184,6 +184,16 @@ void laserCloudHandler(const sensor_msgs::PointCloud2ConstPtr &laserCloudMsg)
                 continue;
             }
         }
+        else if(N_SCANS == 40)
+        {
+         if(angle >= 2) scanID = int(angle - 2) + 34;
+         else if(angle <=-6) scanID = int(16 + angle);
+         else scanID = int((angle + 6)/0.33 + 10);
+         if(scanID > (N_SCANS - 1) || scanID < 0){
+             count--;
+             continue;
+         }
+        }
         else if (N_SCANS == 64)
         {   
             if (angle >= -8.83)
@@ -469,9 +479,9 @@ int main(int argc, char **argv)
 
     printf("scan line number %d \n", N_SCANS);
 
-    if(N_SCANS != 16 && N_SCANS != 32 && N_SCANS != 64)
+    if(N_SCANS != 16 && N_SCANS != 32 && N_SCANS != 40 &&N_SCANS != 64)
     {
-        printf("only support velodyne with 16, 32 or 64 scan line!");
+        printf("only support velodyne with 16, 32, 40 or 64 scan line!");
         return 0;
     }
 
