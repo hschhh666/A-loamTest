@@ -91,9 +91,11 @@ int laserCloudSurroundInd[125];
 struct pos{
     double x;
     double y;
+    double t;
 };
 
 std::queue<pos> gtPos;
+std::string log_path;
 
 // input: from odom
 pcl::PointCloud<PointType>::Ptr laserCloudCornerLast(new pcl::PointCloud<PointType>());
@@ -220,6 +222,7 @@ void getGPS(const aloam_velodyne::dwdx msg)
     pos curGtPos;
     curGtPos.y = -(globalX * cos(yaw) + globalY * sin(yaw));
     curGtPos.x = globalY * cos(yaw) - globalX * sin(yaw);
+    curGtPos.t = msg.time_stamp;
 
     mBuf.lock();
     gtPos.push(curGtPos);
@@ -905,7 +908,9 @@ void process()
             double calX = odomAftMapped.pose.pose.position.x;
             double calY = odomAftMapped.pose.pose.position.y;
             double errorDis = sqrt((gtX-calX)*(gtX-calX)+(gtY-calY)*(gtY-calY));
-            fprintf(fp,"%lf %lf %lf %lf %lf %lf\n", timeLaserOdometry, gtX, gtY, calX, calY, errorDis);
+
+            printf("timestamp diff %lf\n", gtPos.back().t - timeLaserOdometry);
+            fprintf(fp,"%lf %lf %lf %lf %lf %lf %lf\n", gtPos.back().t,gtPos.back().t - timeLaserOdometry, gtX, gtY, calX, calY, errorDis);
             fflush(fp);
 
 
@@ -942,18 +947,22 @@ int main(int argc, char **argv)
 	ros::init(argc, argv, "laserMapping");
 	ros::NodeHandle nh;
 
+    nh.param<std::string>("log_path", log_path, "/home");
+
     std::time_t timeTmp;
     std::time(&timeTmp);
     std::string filename = "loamError" + std::to_string(timeTmp) + ".txt";
+    filename = log_path + "/" + filename;
 
     fp = fopen(filename.c_str(), "w");
-    fprintf(fp,"timeStamp gtX gtY loamX loamY errorDis\n");
+    fprintf(fp,"timeStamp timeDeley gtX gtY loamX loamY errorDis\n");
     fflush(fp);
 
 	float lineRes = 0;
 	float planeRes = 0;
 	nh.param<float>("mapping_line_resolution", lineRes, 0.4);
 	nh.param<float>("mapping_plane_resolution", planeRes, 0.8);
+
 	printf("line resolution %f plane resolution %f \n", lineRes, planeRes);
 	downSizeFilterCorner.setLeafSize(lineRes, lineRes,lineRes);
 	downSizeFilterSurf.setLeafSize(planeRes, planeRes, planeRes);
