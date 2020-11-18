@@ -1,0 +1,10 @@
+<launch>
+    <!-- <remap from="/velodyne_points" to="/pandar_points"/> -->
+    <param name="data_path" type="str" value="/home/hsc/Desktop/placeRecognition" />
+    <param name="imgResizeFac" type="double" value="0.5" />
+
+
+    <node pkg="aloam_velodyne" type="placeAnnotation" name="placeAnnotation" output="screen" />
+
+
+</launch>

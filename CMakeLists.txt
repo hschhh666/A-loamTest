@@ -50,6 +50,12 @@ catkin_package(
 add_library(xy2000_lb2000 src/xy2000_lb2000.cpp)
 target_link_libraries(xy2000_lb2000 ${catkin_LIBRARIES} )
 
+add_executable(placeAnnotation src/placeAnnotation.cpp)
+target_link_libraries(placeAnnotation xy2000_lb2000 ${catkin_LIBRARIES} ${OpenCV_LIBS})
+
+add_executable(placeRecognition src/placeRecognition.cpp)
+target_link_libraries(placeRecognition xy2000_lb2000 ${catkin_LIBRARIES} ${OpenCV_LIBS})
+
 add_executable(ascanRegistration src/scanRegistration.cpp)
 target_link_libraries(ascanRegistration ${catkin_LIBRARIES} ${PCL_LIBRARIES})
 
