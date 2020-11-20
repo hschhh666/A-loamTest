@@ -1,8 +1,15 @@
 <launch>
     <!-- <remap from="/velodyne_points" to="/pandar_points"/> -->
+
+    <!-- 关键帧路径，必须提前建立好这个文件夹 -->
     <param name="data_path" type="str" value="/home/hsc/Desktop/placeRecognition" />
+
+    <!-- 识别结果保存的路径，必须提前建立好这个文件夹 -->
+    <param name="res_path" type="str" value="/home/hsc/Desktop/placeRecognitionRes" />
+
+
     <param name="imgResizeFac" type="double" value="0.5" />
-    <param name="disThr" type="double" value="20" />
+    <param name="disThr" type="double" value="10" />
     <param name="angThr" type="double" value="50" />
 
 

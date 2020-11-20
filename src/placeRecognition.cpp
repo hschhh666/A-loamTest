@@ -32,6 +32,13 @@
 #include "aloam_velodyne/dwdx.h"
 #include "aloam_velodyne/xy2000_lb2000.h"
 
+#include <chrono>
+#include <iostream>
+using std::chrono::high_resolution_clock;
+using std::chrono::milliseconds;
+high_resolution_clock::time_point beginTime, endTime;
+milliseconds timeInterval;
+
 std::mutex mBuf;
 struct pos{
     double x;
@@ -57,6 +64,7 @@ float imgResizeFac;
 FILE * fp;
 int imageID;
 std::string data_path;
+std::string res_path;
 std::string file_name;
 int disThr, angThr;
 
@@ -108,6 +116,8 @@ void imageCallback(const sensor_msgs::CompressedImageConstPtr& msg)
 void process(){
     while(true){
         if(!imgs.empty() && !gtPos.empty()){
+            beginTime = high_resolution_clock::now();
+            static int resId = 0;
             cv::Mat img = imgs.back();
             cv::resize(img,img,cv::Size(img.cols*imgResizeFac,img.rows*imgResizeFac));
 
@@ -120,8 +130,7 @@ void process(){
             orb->detect(img,keyPoints);
             cv::drawKeypoints(img,keyPoints,img);
 
-            cv::imshow("RGB",img);
-            cv::waitKey(1);
+
             for(int i = 0; i < placeInfo.size();i++){
                 double dis = sqrt((placeInfo[i].x - x)*(placeInfo[i].x - x) + (placeInfo[i].y - y)*(placeInfo[i].y - y));
                 int angle = abs(int(placeInfo[i].yaw - yaw));
@@ -130,29 +139,21 @@ void process(){
                     char words[100];
                     sprintf(words,"Recognized to origin place %d", i);
                     cv::Mat tmpImg = img.clone();
-                    cv::putText(tmpImg,words, cv::Point(10,50),0,0.8,cv::Scalar(0,0,255),2);
-
-
-                    sprintf(words,"Origin place %d", i);
-                    cv::Mat originImg = cv::imread(placeInfo[i].img_file_name);
-                    cv::putText(originImg,words, cv::Point(10,50),0,0.8,cv::Scalar(0,0,255),2);
-
-
-                    cv::imshow("origin image",originImg);
-                    cv::imshow("recognition result", tmpImg);
-
-                    cv::waitKey(1);
+                    cv::putText(img,words, cv::Point(10,100),0,0.8,cv::Scalar(0,0,255),2);
+                    std::string img_file_name = res_path + "/recognize" + std::to_string(resId) + ".png";
+                    cv::imwrite(img_file_name,img);
+                    resId ++;
                     break;
                 }
-                else{
-                    if(i == placeInfo.size()-1){
-                        cv::destroyWindow("recognition result");
-                        cv::destroyWindow("origin image");
-                    }
-
-                }
             }
-
+            endTime = high_resolution_clock::now();
+            timeInterval = std::chrono::duration_cast<milliseconds>(endTime - beginTime);
+            int hz = 200 / timeInterval.count();
+            char Time[100];
+            sprintf(Time,"%d Hz",hz);
+            cv::putText(img,Time, cv::Point(10,50),0,0.8,cv::Scalar(0,0,255),2);
+            cv::imshow("RGB",img);
+            cv::waitKey(1);
         }
         std::chrono::milliseconds dura(2);
         std::this_thread::sleep_for(dura);
@@ -165,6 +166,7 @@ int main(int argc, char **argv)
     ros::init(argc, argv, "placeRecognition");
     ros::NodeHandle nh;
     nh.param<std::string>("data_path", data_path, "/home/hsc/Desktop/placeRecognition");
+    nh.param<std::string>("res_path", res_path, "/home/hsc/Desktop/placeRecognitionRes");
     nh.param<float>("imgResizeFac", imgResizeFac, 0.5);
     nh.param<int>("disThr", disThr, 10);
     nh.param<int>("angThr", angThr, 50);

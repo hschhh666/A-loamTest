@@ -1,6 +1,9 @@
 <launch>
     <!-- <remap from="/velodyne_points" to="/pandar_points"/> -->
+
+    <!-- 关键帧路径，必须提前建立好这个文件夹 -->
     <param name="data_path" type="str" value="/home/hsc/Desktop/placeRecognition" />
+    
     <param name="imgResizeFac" type="double" value="0.5" />
 
 

@@ -1,7 +1,8 @@
 <launch>
     <remap from="/velodyne_points" to="/pandar_points"/>
     <param name="scan_line" type="int" value="40" />
-    <!-- loamErrorxxx.txt save path -->
+    
+    <!-- 定位误差保存路径，必须提前建立好这个文件夹 -->
     <param name="log_path" type="str" value="/home/hsc/Desktop" />
 
     <!-- if 1, do mapping 10 Hz, if 2, do mapping 5 Hz. Suggest to use 1, it will adjust frequence automaticlly -->
