@@ -126,9 +126,11 @@ void process(){
             double y = gtPos.back().y;
             double yaw = gtPos.back().yaw;
 
-            std::vector<cv::KeyPoint> keyPoints;
-            orb->detect(img,keyPoints);
-            cv::drawKeypoints(img,keyPoints,img);
+            std::vector<cv::KeyPoint> keyPoints1, keyPoints2;
+            cv::Mat descriptor1, descriptor2;
+
+            orb->detectAndCompute(img,cv::Mat(),keyPoints1,descriptor1);
+            cv::drawKeypoints(img,keyPoints1,img);
 
 
             for(int i = 0; i < placeInfo.size();i++){
@@ -136,11 +138,43 @@ void process(){
                 int angle = abs(int(placeInfo[i].yaw - yaw));
                 angle = angle > 180 ? 360-angle:angle;
                 if(dis < disThr && angle < angThr){
+                    std::string place_file_name = placeInfo[i].img_file_name;
+                    cv::Mat place_model = cv::imread(place_file_name);
+
+                    cv::cvtColor(place_model,place_model,cv::COLOR_BGR2GRAY);
+                    orb->detectAndCompute(place_model, cv::Mat(), keyPoints2, descriptor2);
+
+                    std::vector<cv::DMatch> matches, good_match;
+                    cv::BFMatcher matcher(cv::NORM_HAMMING);
+                    matcher.match(descriptor1, descriptor2, matches);
+
+                    double min_dis = 100000000, max_dis = 0;
+
+                    for (auto m : matches) {
+                        double dis = m.distance;
+                        min_dis = dis < min_dis ? dis : min_dis;
+                        max_dis = dis > max_dis ? dis : max_dis;
+                    }
+
+
+                    for (auto m : matches) {
+                        if (m.distance <= std::max(5 * min_dis, 30.0))
+                            good_match.push_back(m);
+                    }
+
+                    cv::Mat match_img;
+                    cv::drawMatches(img, keyPoints1, place_model, keyPoints2, good_match, match_img);
+
+
                     char words[100];
                     sprintf(words,"Recognized to origin place %d", i);
-                    cv::Mat tmpImg = img.clone();
+                    cv::Mat tmpImg = match_img.clone();
+                    cv::putText(match_img,words, cv::Point(10,100),0,0.8,cv::Scalar(0,0,255),2);
                     cv::putText(img,words, cv::Point(10,100),0,0.8,cv::Scalar(0,0,255),2);
-                    std::string img_file_name = res_path + "/recognize" + std::to_string(resId) + ".png";
+                    std::string img_file_name = res_path + "/withMatchRecognize" + std::to_string(resId) + ".png";
+                    cv::imwrite(img_file_name,match_img);
+
+                    img_file_name = res_path + "/recognize" + std::to_string(resId) + ".png";
                     cv::imwrite(img_file_name,img);
                     resId ++;
                     break;
