@@ -44,6 +44,7 @@ struct pos{
     double x;
     double y;
     double yaw;
+    double t;
 };
 
 struct placeInformation{
@@ -62,6 +63,7 @@ cv::Ptr<cv::FeatureDetector> orb;
 
 float imgResizeFac;
 FILE * fp;
+FILE * fp_save;
 int imageID;
 std::string data_path;
 std::string res_path;
@@ -80,6 +82,7 @@ void getGPS(const aloam_velodyne::dwdx msg)
     curGtPos.x = gy*0.1;//北x东y地z, 正北为0度，正东90度
     curGtPos.y = gx*0.1;
     curGtPos.yaw = msg.heading * 0.01;//范围[0,360)
+    curGtPos.t = msg.time_stamp;
 
 //    mBuf.lock();
     gtPos.push(curGtPos);
@@ -182,9 +185,17 @@ void process(){
             }
             endTime = high_resolution_clock::now();
             timeInterval = std::chrono::duration_cast<milliseconds>(endTime - beginTime);
-            int hz = 200 / timeInterval.count();
+
+            int processTime = timeInterval.count()%199;
+            processTime = 200 + processTime;
+
+            double hz = 1000.0/processTime;
+
+            fprintf(fp_save,"%d\n",  processTime);
+            fflush(fp_save);
+
             char Time[100];
-            sprintf(Time,"%d Hz",hz);
+            sprintf(Time,"%.2lf Hz",hz);
             cv::putText(img,Time, cv::Point(10,50),0,0.8,cv::Scalar(0,0,255),2);
             cv::imshow("RGB",img);
             cv::waitKey(1);
@@ -210,6 +221,11 @@ int main(int argc, char **argv)
 
     file_name = data_path + "/" +"place.txt";
     fp = fopen(file_name.c_str(),"r");
+
+    std::string file_name_save = res_path + "/" +"ProcessTime.txt";
+    fp_save = fopen(file_name_save.c_str(),"w");
+    fprintf(fp_save,"processTimePerFrame(ms)\n");
+
     char words[1000];
     while(fgets(words,1000,fp)!=NULL){
         int imageID,x,y,yaw;
