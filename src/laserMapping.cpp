@@ -92,6 +92,9 @@ struct pos{
     double x;
     double y;
     double t;
+    double lat;
+    double lon;
+    double yaw;
 };
 
 std::queue<pos> gtPos;
@@ -223,6 +226,10 @@ void getGPS(const aloam_velodyne::dwdx msg)
     curGtPos.y = -(globalX * cos(yaw) + globalY * sin(yaw));
     curGtPos.x = globalY * cos(yaw) - globalX * sin(yaw);
     curGtPos.t = msg.time_stamp;
+    curGtPos.lat = lat;
+    curGtPos.lon = lon;
+    curGtPos.yaw = msg.heading*0.01;
+
 
     mBuf.lock();
     gtPos.push(curGtPos);
@@ -908,6 +915,12 @@ void process()
             double calX = odomAftMapped.pose.pose.position.x;
             double calY = odomAftMapped.pose.pose.position.y;
             double errorDis = sqrt((gtX-calX)*(gtX-calX)+(gtY-calY)*(gtY-calY));
+
+            static bool first = true;
+            if(first){
+                first = false;
+                fprintf(fp,"init lon = %lf, init lat = %lf, init yaw = %lf\n",gtPos.back().lon, gtPos.back().lat, gtPos.back().yaw);
+            }
 
             printf("timestamp diff %lf\n", gtPos.back().t - timeLaserOdometry);
             fprintf(fp,"%lf %lf %lf %lf %lf %lf %lf\n", gtPos.back().t,gtPos.back().t - timeLaserOdometry, gtX, gtY, calX, calY, errorDis);
